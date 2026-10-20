@@ -1,0 +1,4 @@
+LD V0 0A
+LD V1 FF
+LD VA 7F
+DUMP
