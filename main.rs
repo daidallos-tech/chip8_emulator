@@ -6,13 +6,24 @@ use std::io::{self, Read, Write};
 fn region(addr: u64, rom_len: u64) -> &'static str {
     // TODO: INTERPRETER, FONT, ROM, FREE or INVALID, as described in the exercise.
     let _ = (addr, rom_len);
-    ""
+
+    if addr > 0xFFF {
+        "INVALID"
+    } else if addr >= 0x050 && addr <= 0x09F {
+        "FONT"
+    } else if addr >= 0x000 && addr <= 0x1FF {
+        "INTERPRETER"
+    } else if rom_len > 0 && addr >= 0x200 && addr <= (0x200 + rom_len - 1) {
+        "ROM"
+    } else {
+        "FREE"
+    }
 }
 
 fn main() {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input).unwrap();
-    let mut lines = input.split('\n');
+    let mut lines = input.lines();
     let rom_len: u64 = lines.next().unwrap_or("0").trim().parse().unwrap();
     let mut out = String::new();
     for line in lines {
