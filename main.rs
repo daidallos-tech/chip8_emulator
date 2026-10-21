@@ -1,97 +1,73 @@
-use std::io::{self, Read, Write};
+use std::{fmt::format, io::{self, Read, Write}};
 
-// ---- provided -------------------------------------------------------------
-// The 16 hex-digit sprites (4 x 5 pixels, one byte per row, high nibble used).
-const FONT: [usize; 80] = [
-    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-    0x20, 0x60, 0x20, 0x20, 0x70, // 1
-    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
-];
+// Return the text for one 16-bit instruction word, e.g. "LD V3, 0A".
+fn decode(op: usize) -> String {
+    // TODO: split `op` into its nibbles and return the text from the exercise table.
+    let a = (op >> 12) & 0xF;
+    let b = (op >> 8) & 0xF;
+    let c = (op >> 4) & 0xF;
+    let d = op & 0xF;
 
-struct Machine {
-    mem: Vec<usize>,
-    v: [usize; 16],
-}
-
-impl Machine {
-    fn new() -> Machine {
-        let mut m = Machine { mem: vec![0usize; 4096], v: [0; 16] };
-        // TODO: copy the 80 font bytes into RAM, starting at address 0x050.
-        m.mem[0x050..(0x050 + FONT.len())].copy_from_slice(&FONT);
-        m
+    match (a, b, c, d) {
+        (0, 0, 0xE, 0) => "CLS".to_string(),
+        (0, 0, 0xE, 0xE) => "RET".to_string(),
+        (0, n1, n2, n3) => format!("SYS {:X}{:X}{:X}", n1, n2, n3),
+        (1, n1, n2, n3) => format!("JP {:X}{:X}{:X}", n1, n2, n3),
+        (2, n1, n2, n3) => format!("CALL {:X}{:X}{:X}", n1, n2, n3),
+        (3, x, c, d) => format!("SE V{:X}, {:X}{:X}", x, c, d),
+        (4, x, c, d) => format!("SNE V{:X}, {:X}{:X}", x, c, d),
+        (5, x, y, 0) => format!("SE V{:X}, V{:X}", x, y),
+        (6, x, c, d) => format!("LD V{:X}, {:X}{:X}", x, c ,d),
+        (7, x, c, d) => format!("ADD V{:X}, {:X}{:X}", x, c, d),
+        (8, x, y, 0) => format!("LD V{:X}, V{:X}", x, y),
+        (8, x, y, 1) => format!("OR V{:X}, V{:X}", x, y),
+        (8, x, y, 2) => format!("AND V{:X}, V{:X}", x, y),
+        (8, x, y, 3) => format!("XOR V{:X}, V{:X}", x, y),
+        (8, x, y, 4) => format!("ADD V{:X}, V{:X}", x, y),
+        (8, x, y, 5) => format!("SUB V{:X}, V{:X}", x, y),
+        (8, x, y, 6) => format!("SHR V{:X}, V{:X}", x, y),
+        (8, x, y, 7) => format!("SUBN V{:X}, V{:X}", x, y),
+        (8, x, y, 0xE) => format!("SHL V{:X}, V{:X}", x, y),
+        (9, x, y, 0) => format!("SNE V{:X}, V{:X}", x, y),
+        (0xA, n1, n2, n3) => format!("LD I, {:X}{:X}{:X}",n1, n2, n3),
+        (0xB, n1, n2, n3) => format!("JP V0, {:X}{:X}{:X}", n1, n2, n3),
+        (0xC, x, c, d) => format!("RND V{:X}, {:X}{:X}", x, c, d),
+        (0xD, x, y, n1) => format!("DRW V{:X}, V{:X}, {:X}", x, y, n1),
+        (0xE, x, 9, 0xE) => format!("SKP V{:X}", x),
+        (0xE, x, 0xA, 1) => format!("SKNP V{:X}", x),
+        (0xF, x, 0, 7) => format!("LD V{:X}, DT", x),
+        (0xF, x, 0, 0xA) => format!("LD V{:X}, K", x),
+        (0xF, x, 1, 5) => format!("LD DT, V{:X}", x),
+        (0xF, x, 1, 8) => format!("LD ST, V{:X}", x),
+        (0xF, x, 1, 0xE) => format!("ADD I, V{:X}", x),
+        (0xF, x, 2, 9) => format!("LD F, V{:X}", x),
+        (0xF, x, 3, 3) => format!("LD B, V{:X}", x),
+        (0xF, x, 5, 5) => format!("LD [I], V{:X}", x),
+        (0xF, x, 6, 5) => format!("LD V{:X}, [I]", x),
+        _ => "UNKNOWN".to_string(),
     }
-
-    fn ld(&mut self, x: usize, kk: usize) {
-        // TODO: 6XKK -- VX = KK.
-        self.v[x] = kk;
-    }
-
-    fn add_imm(&mut self, x: usize, kk: usize) {
-        // TODO: 7XKK -- VX = VX + KK, keeping only 8 bits. VF is not touched.
-        self.v[x] = (self.v[x] + kk) & 0xFF;
-    }
-
-    fn add_reg(&mut self, x: usize, y: usize) {
-        // TODO: 8XY4 -- VX = VX + VY (8 bits). VF = 1 on carry, else 0, written last.
-        let sum = self.v[x] + self.v[y];
-
-        let carry = if sum > 255 { 1 } else { 0 };
-
-        self.v[x] = sum & 0xFF;
-        self.v[15] = carry;
-    }
-}
-
-fn hex(s: &str) -> usize {
-    usize::from_str_radix(s, 16).unwrap()
 }
 
 fn main() {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input).unwrap();
-    let mut m = Machine::new();
+    let digits: Vec<char> = input.chars().filter(|c| !c.is_whitespace()).collect();
+    let mut rom: Vec<usize> = Vec::new();
+    let mut k = 0;
+    while k + 1 < digits.len() {
+        let pair: String = digits[k..k + 2].iter().collect();
+        rom.push(usize::from_str_radix(&pair, 16).unwrap());
+        k += 2;
+    }
     let mut out = String::new();
-    for line in input.split('\n') {
-        let p: Vec<&str> = line.split_whitespace().collect();
-        if p.is_empty() {
-            continue;
-        }
-        match p[0] {
-            "LD" => m.ld(hex(&p[1][1..]), hex(p[2])),
-            "ADD" => {
-                if p[2].starts_with('V') {
-                    m.add_reg(hex(&p[1][1..]), hex(&p[2][1..]));
-                } else {
-                    m.add_imm(hex(&p[1][1..]), hex(p[2]));
-                }
-            }
-            "DUMP" => {
-                let regs: Vec<String> = m.v.iter().map(|b| format!("{:02X}", b)).collect();
-                out.push_str(&regs.join(" "));
-                out.push('\n');
-            }
-            "MEM" => {
-                let a = hex(p[1]);
-                let n: usize = p[2].parse().unwrap();
-                let bytes: Vec<String> = (0..n).map(|k| format!("{:02X}", m.mem[a + k])).collect();
-                out.push_str(&bytes.join(" "));
-                out.push('\n');
-            }
-            _ => {}
-        }
+    let mut i = 0;
+    while i + 1 < rom.len() {
+        let op = (rom[i] << 8) | rom[i + 1];
+        out.push_str(&format!("{:03X}: {:04X} {}\n", 0x200 + i, op, decode(op)));
+        i += 2;
+    }
+    if i < rom.len() {
+        out.push_str(&format!("{:03X}: {:02X} DB\n", 0x200 + i, rom[i]));
     }
     io::stdout().write_all(out.as_bytes()).unwrap();
 }
