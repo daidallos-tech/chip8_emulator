@@ -146,12 +146,12 @@ impl Chip8 {
                 0x7 => {
                     let vx = self.v[x];
                     let vy = self.v[y];
-                    self.v[x] = vx.wrapping_sub(vy) & 0xFF;
+                    self.v[x] = vy.wrapping_sub(vx) & 0xFF;
                     self.v[0xF] = (vy >= vx) as usize;
                 }
                 0xE => {
                     let msb = (self.v[x] >> 7) & 1;
-                    self.v[x] <<= 1;
+                    self.v[x] = (self.v[x] << 1) & 0xFF;
                     self.v[0xF] = msb;
                 }
                 _ => {}
