@@ -139,19 +139,20 @@ impl Chip8 {
                     self.v[0xF] = (vx >= vy) as usize;
                 }
                 0x6 => {
-                    let lsb = self.v_reg[x] & 1;
-                    self.v_reg[x] >>= 1;
-                    self.v_reg[0xF] = lsb;
+                    let lsb = self.v[x] & 1;
+                    self.v[x] >>= 1;
+                    self.v[0xF] = lsb;
                 }
                 0x7 => {
-                    let sum = self.v[x] as u16 - self.v[y] as u16;
-                    self.v[x] = (sum & 0xFF) as usize;
-                    self.v[0xF] = (sum > 0xFF) as usize;
+                    let vx = self.v[x];
+                    let vy = self.v[y];
+                    self.v[x] = vx.wrapping_sub(vy) & 0xFF;
+                    self.v[0xF] = (vy >= vx) as usize;
                 }
                 0xE => {
-                    let msb = (self.v_reg[x] >> 7) & 1;
-                    self.v_reg[x] <<= 1;
-                    self.v_reg[0xF] = msb;
+                    let msb = (self.v[x] >> 7) & 1;
+                    self.v[x] <<= 1;
+                    self.v[0xF] = msb;
                 }
                 _ => {}
             },
