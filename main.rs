@@ -105,12 +105,12 @@ impl Chip8 {
                 }
             }
             0x5 => {
-                if self.v[x] == self.v[y] {
+                if n == 0x0 && self.v[x] == self.v[y] {
                     self.pc += 2;
                 }
             }
             0x9 => {
-                if self.v[x] != self.v[y] {
+                if n == 0x0 && self.v[x] != self.v[y] {
                     self.pc += 2;
                 }
             }
